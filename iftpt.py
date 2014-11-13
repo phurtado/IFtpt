@@ -1,28 +1,35 @@
-from pyparsing import Word, alphas, alphanums, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict
+from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional
 
 def parse():
+    identifier = Word(alphas+"_",alphanums+"_")
     # Semicolon as end of line
     eol = Suppress(";")
     # test <name>; (NON-STANDARD IF)
-    testdecl = Suppress(Keyword("test") + Word(alphas+"_",alphanums+"_") + eol)
+    testdecl = Suppress(Keyword("test") + identifier + eol)
     # endtest; (NON-STANDARD IF)
     endtest = Suppress(Keyword("endtest") + eol)
     # state <name>;
     statedecl = Keyword("state") + \
-            Word(alphas+"_",alphanums+"_").setResultsName("statename1") + \
+            identifier.setResultsName("statename1") + \
             eol
     # endstate;
     endstate = Keyword("endstate") + eol
     # nextstate <name>;
     nextstate = Keyword("nextstate") + \
-            Word(alphas+"_",alphanums+"_").setResultsName("statename2") + \
+            identifier.setResultsName("statename2") + \
             eol
     # exit;
     ifexit = Keyword("exit") + eol
-    # input <name>;
-    ifinput= Keyword("input") + Word(alphas+"_",alphanums+"_").setResultsName("input",listAllMatches=True) + eol
-    # output <name>;
-    ifoutput= Keyword("output") + Word(alphas+"_",alphanums+"_").setResultsName("output",listAllMatches=True) + eol
+    # input <name>(params...);
+    ifinput= Keyword("input") + \
+            (identifier + 
+                    Suppress("(") + 
+                    Group(ZeroOrMore(identifier + Optional(Suppress(",")))) + 
+                    Suppress(")")
+            )\
+            .setResultsName("input",listAllMatches=True) + eol
+    # output <name>(params...);
+    ifoutput= Keyword("output") + identifier.setResultsName("output",listAllMatches=True) + eol
     # full state block
     state = statedecl + \
             OneOrMore(nextstate | ifexit | ifinput | ifoutput ) + \
@@ -36,6 +43,15 @@ def parse():
     parsed = tests.parseFile("test_ex/test.if")
     return parsed
 
+def getParams(paramlst):
+    if len(paramlst) > 0:
+        ret = '"{'
+        for p in paramlst:
+            ret += p + ","
+        ret = ret[0:-1] + '}"'
+        return ret
+    else: 
+        return "NULL"
 
 if __name__ == '__main__':
     parsed = parse()
@@ -63,7 +79,15 @@ if __name__ == '__main__':
                 purposes[{testn}].source = "{source}";
                 purposes[{testn}].target = "{target}";
             """.format(nsig=nsig,testn=testn,source=source,target=target)
-            print selst.input
+            for inp in selst.input:
+                params = getParams(inp[1]) #TODO Recursividad
+                print """
+                    signalData signal{signalid} = {{"{inp}","input",{params}}};
+                """.format(signalid=1,inp=inp[0],params=params) #TODO signalid
+            for outp in selst.output:
+                print """
+                    signalData signal{signalid} = {{"{outp}","output",NULL}};
+                """.format(signalid=2,outp=outp)
 
             
     f = open('test.C','w')
