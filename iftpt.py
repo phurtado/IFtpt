@@ -8,6 +8,15 @@ def parse():
     testdecl = Suppress(CaselessKeyword("test") + identifier + eol)
     # endtest; (NON-STANDARD IF)
     endtest = Suppress(CaselessKeyword("endtest") + eol)
+
+    # process <id>;
+    processdecl = CaselessKeyword("process") + \
+            Word(alphas+"_"+"{"+"}",alphanums+"_"+"{"+"}").setResultsName("processname1") + \
+            eol
+
+    # endprocess;
+    endprocess = CaselessKeyword("endprocess") + eol
+
     # state <name>;
     statedecl = CaselessKeyword("state") + \
             identifier.setResultsName("statename1") + \
@@ -37,16 +46,26 @@ def parse():
             )\
             .setResultsName("output",listAllMatches=True) + eol
     # full state block
-    state = statedecl + \
+    state = Group(statedecl + \
             OneOrMore(nextstate | ifexit | ifinput | ifoutput ) + \
-            endstate
+            endstate)
+
     # state group
-    states = ZeroOrMore(Group(state))
+    states = ZeroOrMore(state)
+
+    # full process group
+    process = Group(processdecl + \
+            OneOrMore(state) + \
+            endprocess)
+
+    # process group
+    processes = ZeroOrMore(process)
+
     # full test block
-    test = testdecl + states + endtest
+    test = Group(testdecl + processes + endtest)
     # test group
-    tests = ZeroOrMore(Group(test))
-    parsed = tests.parseFile("test_ex/test.if")
+    tests = ZeroOrMore(test)
+    parsed = tests.parseFile("test_ex/test.if",parseAll=True)
     return parsed
 
 def getParams(paramlst):
@@ -69,44 +88,49 @@ if __name__ == '__main__':
     signalid=0
 
     to_write = ""
-
-    for elst in parsed:
+    for test_el in parsed:
         testn = testn + 1
         source = ""
         target = ""
-        for selst in elst:
-            el = list(selst)
-            source = el[el.index('state') + 1]
-            if source == target:
-                pass #TODO
-            else:
-                pass #TODO
-            target = el[el.index('nextstate') + 1]
-            nsig = el.count("input") + el.count("output")
-            to_write += """
-                purposes[{testn}].numSignals = {nsig};
-                purposes[{testn}].numSignals = {{{processname}}}0;
-                purposes[{testn}].source = "{source}";
-                purposes[{testn}].target = "{target}";
-            """.format(nsig=nsig,processname="process",testn=testn-1,source=source,target=target) #TODO FALTA PROCESS!!!!
+        for process_el in test_el:
+            pel = list(process_el)
+            process_name_index = pel.index('process') + 1
+            process = pel[process_name_index]
+            for state_el in process_el[process_name_index+1:]: #slice omitting process declaration, should be comprehension or filter?
+                el = list(state_el)
+                if 'state' in el:
+                    source = el[el.index('state') + 1]
+                    if source == target:
+                        pass #TODO
+                    else:
+                        pass #TODO
+                    target = el[el.index('nextstate') + 1]
+                    nsig = el.count("input") + el.count("output")
+                    to_write += """
+                        purposes[{testn}].numSignals = {nsig};
+                        purposes[{testn}].process = {processname};
+                        purposes[{testn}].source = "{source}";
+                        purposes[{testn}].target = "{target}";
+                    """.format(nsig=nsig,processname=process,testn=testn-1,source=source,target=target)
 
-            signalindex=0
-            for inp in selst.input:
-                params = getParams(inp[1]) #TODO Recursividad
-                to_write+= """
-                    signalData signal{signalid} = {{"{inp}","input",{params}}};
-                    purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params)
-                signalid+=1
-                signalindex+=1
-            for outp in selst.output:
-                params = getParams(outp[1]) #TODO Recursividad
-                to_write+= """
-                    signalData signal{signalid} = {{"{outp}","output",{params}}};
-                    purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
-                signalid+=1
-                signalindex+=1
+                    signalindex=0
+                    for inp in state_el.input:
+                        params = getParams(inp[1]) #TODO Recursividad
+                        to_write+= """
+                            signalData signal{signalid} = {{"{inp}","input",{params}}};
+                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params)
+                        signalid+=1
+                        signalindex+=1
+                    for outp in state_el.output:
+                        params = getParams(outp[1]) #TODO Recursividad
+                        to_write+= """
+                            signalData signal{signalid} = {{"{outp}","output",{params}}};
+                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
+                        signalid+=1
+                        signalindex+=1
+                testn+=1
 
     f = open('test.C','w')
 
