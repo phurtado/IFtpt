@@ -1,6 +1,8 @@
 from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword
+import argparse
+import sys
 
-def parse():
+def getGrammar():
     identifier = Word(alphas+"_",alphanums+"_")
     # Semicolon as end of line
     eol = Suppress(";")
@@ -65,7 +67,12 @@ def parse():
     test = Group(testdecl + processes + endtest)
     # test group
     tests = ZeroOrMore(test)
-    parsed = tests.parseFile("test_ex/test.if",parseAll=True)
+
+    return tests
+
+def parse(inputfile):
+    tests = getGrammar()
+    parsed = tests.parseFile(inputfile,parseAll=True)
     return parsed
 
 def getParams(paramlst):
@@ -78,8 +85,8 @@ def getParams(paramlst):
     else:
         return "NULL"
 
-if __name__ == '__main__':
-    parsed = parse()
+def processFile(inputfile,outputfile):
+    parsed = parse(inputfile)
     #print repr(parsed)
     #print parsed
 
@@ -132,7 +139,7 @@ if __name__ == '__main__':
                         signalindex+=1
                 testn+=1
 
-    f = open('test.C','w')
+    f = open(outputfile,'w')
 
     cstr = '''
 
@@ -169,3 +176,10 @@ if __name__ == '__main__':
     '''.format(ordtestn, testn) + to_write + "\n"
     f.write(cstr)
     f.close()
+
+if __name__ == '__main__':
+    argumentParser = argparse.ArgumentParser()
+    argumentParser.add_argument("inputfile", help="Determine input file name")
+    argumentParser.add_argument("-o", dest="outputfile", default="test.C", help="Determine output file name (default: test.C)")
+    args = argumentParser.parse_args()
+    processFile(args.inputfile,args.outputfile)
