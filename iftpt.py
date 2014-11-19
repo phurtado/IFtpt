@@ -1,6 +1,5 @@
-from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword
+from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword, Forward, ParseResults
 import argparse
-import sys
 
 def getGrammar():
     identifier = Word(alphas+"_",alphanums+"_")
@@ -31,11 +30,15 @@ def getGrammar():
             eol
     # exit;
     ifexit = CaselessKeyword("exit") + eol
+
+    parameter = Forward()
+    parameter << identifier + Optional(Suppress("(") + Group(ZeroOrMore(parameter)) + Suppress(")")) + Optional(Suppress(","))
+
     # input <name>(params...);
     ifinput= CaselessKeyword("input") + \
             (identifier +
                     Suppress("(") +
-                    Group(ZeroOrMore(identifier + Optional(Suppress(",")))) +
+                    Group(ZeroOrMore(parameter)) +
                     Suppress(")")
             )\
             .setResultsName("input",listAllMatches=True) + eol
@@ -75,19 +78,28 @@ def parse(inputfile):
     parsed = tests.parseFile(inputfile,parseAll=True)
     return parsed
 
+# Couldn't find a better way to do this...
+# isinstance and peeking are not nice...
+def _getParams(paramlst):
+    ret = '{'
+    for p,i in zip(paramlst,range(len(paramlst))):
+        if not isinstance(p,ParseResults):
+            ret += p + ","
+            if i+1<len(paramlst) and isinstance(paramlst[i+1],ParseResults):
+                ret+=_getParams(paramlst[i+1])
+    ret = ret[0:-1] + '},' #slice to remove last comma in sublist
+    return ret
+
 def getParams(paramlst):
     if len(paramlst) > 0:
-        ret = '"{'
-        for p in paramlst:
-            ret += p + ","
-        ret = ret[0:-1] + '}"'
+        ret = '"' + _getParams(paramlst)[0:-1] + '"' # slice to remove last comma in complete list
         return ret
     else:
         return "NULL"
 
 def processFile(inputfile,outputfile):
     parsed = parse(inputfile)
-    #print repr(parsed)
+    print repr(parsed)
     #print parsed
 
     testn=0
@@ -107,10 +119,10 @@ def processFile(inputfile,outputfile):
                 el = list(state_el)
                 if 'state' in el:
                     source = el[el.index('state') + 1]
-                    if source == target:
-                        pass #TODO
-                    else:
-                        pass #TODO
+                    #if source == target:
+                    #    pass #TODO
+                    #else:
+                    #    pass #TODO
                     target = el[el.index('nextstate') + 1]
                     nsig = el.count("input") + el.count("output")
                     to_write += """
@@ -122,7 +134,7 @@ def processFile(inputfile,outputfile):
 
                     signalindex=0
                     for inp in state_el.input:
-                        params = getParams(inp[1]) #TODO Recursividad
+                        params = getParams(inp[1])
                         to_write+= """
                             signalData signal{signalid} = {{"{inp}","input",{params}}};
                             purposes[{testn}].signals[{signalindex}] = signal{signalid};
@@ -130,7 +142,7 @@ def processFile(inputfile,outputfile):
                         signalid+=1
                         signalindex+=1
                     for outp in state_el.output:
-                        params = getParams(outp[1]) #TODO Recursividad
+                        params = getParams(outp[1])
                         to_write+= """
                             signalData signal{signalid} = {{"{outp}","output",{params}}};
                             purposes[{testn}].signals[{signalindex}] = signal{signalid};
