@@ -99,7 +99,7 @@ def getParams(paramlst):
 
 def processFile(inputfile,outputfile):
     parsed = parse(inputfile)
-    print repr(parsed)
+    #print repr(parsed)
     #print parsed
 
     testn=0
@@ -108,7 +108,7 @@ def processFile(inputfile,outputfile):
 
     to_write = ""
     for test_el in parsed:
-        testn = testn + 1
+        #testn = testn + 1
         source = ""
         target = ""
         for process_el in test_el:
@@ -130,7 +130,7 @@ def processFile(inputfile,outputfile):
                         purposes[{testn}].process = {processname};
                         purposes[{testn}].source = "{source}";
                         purposes[{testn}].target = "{target}";
-                    """.format(nsig=nsig,processname=process,testn=testn-1,source=source,target=target)
+                    """.format(nsig=nsig,processname=process,testn=testn,source=source,target=target)
 
                     signalindex=0
                     for inp in state_el.input:
@@ -138,7 +138,7 @@ def processFile(inputfile,outputfile):
                         to_write+= """
                             signalData signal{signalid} = {{"{inp}","input",{params}}};
                             purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                        """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params)
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params)
                         signalid+=1
                         signalindex+=1
                     for outp in state_el.output:
@@ -146,10 +146,10 @@ def processFile(inputfile,outputfile):
                         to_write+= """
                             signalData signal{signalid} = {{"{outp}","output",{params}}};
                             purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                        """.format(testn=testn-1,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
                         signalid+=1
                         signalindex+=1
-                testn+=1
+                    testn+=1
 
     f = open(outputfile,'w')
 
