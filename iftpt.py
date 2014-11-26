@@ -101,14 +101,13 @@ def processFile(inputfile,outputfile):
     parsed = parse(inputfile)
     #print repr(parsed)
     #print parsed
-
-    testn=0
-    ordtestn=0
-    signalid=0
-
-    to_write = ""
+    testfn=0
     for test_el in parsed:
         #testn = testn + 1
+        to_write = ""
+        testn=0
+        ordtestn=0
+        signalid=0
         source = ""
         target = ""
         for process_el in test_el:
@@ -127,7 +126,7 @@ def processFile(inputfile,outputfile):
                     nsig = el.count("input") + el.count("output")
                     to_write += """
                         purposes[{testn}].numSignals = {nsig};
-                        purposes[{testn}].process = {processname};
+                        purposes[{testn}].process = "{processname}";
                         purposes[{testn}].source = "{source}";
                         purposes[{testn}].target = "{target}";
                     """.format(nsig=nsig,processname=process,testn=testn,source=source,target=target)
@@ -151,47 +150,55 @@ def processFile(inputfile,outputfile):
                         signalindex+=1
                     testn+=1
 
-    f = open(outputfile,'w')
+        fname = (str(testfn) + ".").join(outputfile.split(".")) if testfn>0 else outputfile
 
-    cstr = '''
+        f = open(fname,'w')
 
-        numOrdPurposes = {0};
-        numPurposes = {1};
+        cstr = '''
 
-        int i;
-        for (i=0; i < numPurposes;i++){{
-            purposes[i].status = false;
-            purposes[i].visited = false;
-            purposes[i].process = NULL;
-            purposes[i].source = NULL;
-            purposes[i].target = NULL;
-            purposes[i].numBoundClocks = 0;
-            purposes[i].numActiveClocks = 0;
-            purposes[i].numSignals = 0;
-            purposes[i].numVariables = 0;
-            purposes[i].depth = -1;
-        }}
+            numOrdPurposes = {0};
+            numPurposes = {1};
 
-        for (i=0; i < numOrdPurposes;i++){{
-            ordPurposes[i].status = false;
-            ordPurposes[i].visited = false;
-            ordPurposes[i].process = NULL;
-            ordPurposes[i].source = NULL;
-            ordPurposes[i].target = NULL;
-            ordPurposes[i].numBoundClocks = 0;
-            ordPurposes[i].numActiveClocks = 0;
-            ordPurposes[i].numSignals = 0;
-            ordPurposes[i].numVariables = 0;
-            ordPurposes[i].depth = -1;
-        }}
+            int i;
+            for (i=0; i < numPurposes;i++){{
+                purposes[i].status = false;
+                purposes[i].visited = false;
+                purposes[i].process = NULL;
+                purposes[i].source = NULL;
+                purposes[i].target = NULL;
+                purposes[i].numBoundClocks = 0;
+                purposes[i].numActiveClocks = 0;
+                purposes[i].numSignals = 0;
+                purposes[i].numVariables = 0;
+                purposes[i].depth = -1;
+            }}
 
-    '''.format(ordtestn, testn) + to_write + "\n"
-    f.write(cstr)
-    f.close()
+            for (i=0; i < numOrdPurposes;i++){{
+                ordPurposes[i].status = false;
+                ordPurposes[i].visited = false;
+                ordPurposes[i].process = NULL;
+                ordPurposes[i].source = NULL;
+                ordPurposes[i].target = NULL;
+                ordPurposes[i].numBoundClocks = 0;
+                ordPurposes[i].numActiveClocks = 0;
+                ordPurposes[i].numSignals = 0;
+                ordPurposes[i].numVariables = 0;
+                ordPurposes[i].depth = -1;
+            }}
+
+        '''.format(ordtestn, testn) + to_write + "\n"
+        f.write(cstr)
+        f.close()
+        testfn+=1
+
+def cFileName(string):
+    if not string.endswith((".C",".c")):
+        raise argparse.ArgumentTypeError("Output file name must end in .C")
+    return string
 
 if __name__ == '__main__':
     argumentParser = argparse.ArgumentParser()
     argumentParser.add_argument("inputfile", help="Determine input file name")
-    argumentParser.add_argument("-o", dest="outputfile", default="test.C", help="Determine output file name (default: test.C)")
+    argumentParser.add_argument("-o", dest="outputfile", default="test.C", type=cFileName, help="Determine output file name (default: test.C)")
     args = argumentParser.parse_args()
     processFile(args.inputfile,args.outputfile)
