@@ -1,4 +1,4 @@
-from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword, Forward, ParseResults
+from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword, Forward, ParseResults, SkipTo
 import argparse
 
 def getGrammar():
@@ -46,13 +46,16 @@ def getGrammar():
     ifoutput= CaselessKeyword("output") + \
             (identifier +
                     Suppress("(") +
-                    Group(ZeroOrMore(identifier + Optional(Suppress(",")))) +
+                    Group(ZeroOrMore(parameter)) +
                     Suppress(")")
             )\
             .setResultsName("output",listAllMatches=True) + eol
+
+    ifinformal=CaselessKeyword("informal") + (Combine('"' + SkipTo('"') + '"')).setResultsName("informal",listAllMatches=True) + eol
+
     # full state block
     state = Group(statedecl + \
-            OneOrMore(nextstate | ifexit | ifinput | ifoutput ) + \
+            OneOrMore(nextstate | ifexit | ifinput | ifinformal | ifoutput ) + \
             endstate)
 
     # state group
@@ -146,6 +149,13 @@ def processFile(inputfile,outputfile):
                             signalData signal{signalid} = {{"{outp}","output",{params}}};
                             purposes[{testn}].signals[{signalindex}] = signal{signalid};
                         """.format(testn=testn,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
+                        signalid+=1
+                        signalindex+=1
+                    for inf in state_el.informal:
+                        to_write+= """
+                            signalData signal{signalid} = {{{command},"informal",NULL}};
+                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,command=inf)
                         signalid+=1
                         signalindex+=1
                     testn+=1
