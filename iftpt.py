@@ -6,7 +6,7 @@ def getGrammar():
     # Semicolon as end of line
     eol = Suppress(";")
     # test <name>; (NON-STANDARD IF)
-    testdecl = Suppress(CaselessKeyword("test") + identifier + eol)
+    testdecl = Suppress(CaselessKeyword("test") + identifier) + Optional(CaselessKeyword("#ordered")) + eol
     # endtest; (NON-STANDARD IF)
     endtest = Suppress(CaselessKeyword("endtest") + eol)
 
@@ -113,6 +113,12 @@ def processFile(inputfile,outputfile):
         signalid=0
         source = ""
         target = ""
+        ordered = False
+        parrayname="purposes"
+        if test_el[0] == "#ordered":
+            ordered = True
+            parrayname="ordpurposes"
+            del test_el[0]
         for process_el in test_el:
             pel = list(process_el)
             process_name_index = pel.index('process') + 1
@@ -128,34 +134,34 @@ def processFile(inputfile,outputfile):
                     target = el[el.index('nextstate') + 1]
                     nsig = el.count("input") + el.count("output")
                     to_write += """
-                        purposes[{testn}].numSignals = {nsig};
-                        purposes[{testn}].process = "{processname}";
-                        purposes[{testn}].source = "{source}";
-                        purposes[{testn}].target = "{target}";
-                    """.format(nsig=nsig,processname=process,testn=testn,source=source,target=target)
+                        {parrayname}[{testn}].numSignals = {nsig};
+                        {parrayname}[{testn}].process = "{processname}";
+                        {parrayname}[{testn}].source = "{source}";
+                        {parrayname}[{testn}].target = "{target}";
+                    """.format(nsig=nsig,processname=process,testn=testn,source=source,target=target,parrayname=parrayname)
 
                     signalindex=0
                     for inp in state_el.input:
                         params = getParams(inp[1])
                         to_write+= """
                             signalData signal{signalid} = {{"{inp}","input",{params}}};
-                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params)
+                            {parrayname}[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,inp=inp[0],params=params,parrayname=parrayname)
                         signalid+=1
                         signalindex+=1
                     for outp in state_el.output:
                         params = getParams(outp[1])
                         to_write+= """
                             signalData signal{signalid} = {{"{outp}","output",{params}}};
-                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params)
+                            {parrayname}[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,outp=outp[0],params=params,parrayname=parrayname)
                         signalid+=1
                         signalindex+=1
                     for inf in state_el.informal:
                         to_write+= """
                             signalData signal{signalid} = {{{command},"informal",NULL}};
-                            purposes[{testn}].signals[{signalindex}] = signal{signalid};
-                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,command=inf)
+                            {parrayname}[{testn}].signals[{signalindex}] = signal{signalid};
+                        """.format(testn=testn,signalindex=signalindex,signalid=signalid,command=inf,parrayname=parrayname)
                         signalid+=1
                         signalindex+=1
                     testn+=1
@@ -163,6 +169,10 @@ def processFile(inputfile,outputfile):
         fname = (str(testfn) + ".").join(outputfile.split(".")) if testfn>0 else outputfile
 
         f = open(fname,'w')
+
+        if ordered:
+            ordtestn=testn
+            testn=0
 
         cstr = '''
 
