@@ -31,6 +31,9 @@ def getGrammar():
     # exit;
     ifexit = CaselessKeyword("exit") + eol
 
+    # clock (NON-STANDARD IF)
+    ifclock = CaselessKeyword("clock") + identifier.setResultsName("clock",listAllMatches=True) + eol
+
     parameter = Forward()
     parameter << identifier + Optional(Suppress("(") + Group(ZeroOrMore(parameter)) + Suppress(")")) + Optional(Suppress(","))
 
@@ -55,7 +58,7 @@ def getGrammar():
 
     # full state block
     state = Group(statedecl + \
-            OneOrMore(nextstate | ifexit | ifinput | ifinformal | ifoutput ) + \
+            OneOrMore(nextstate | ifexit | ifinput | ifinformal | ifoutput | ifclock ) + \
             endstate)
 
     # state group
@@ -111,6 +114,7 @@ def processFile(inputfile,outputfile):
         testn=0
         ordtestn=0
         signalid=0
+        clockid=0
         source = ""
         target = ""
         ordered = False
@@ -141,6 +145,7 @@ def processFile(inputfile,outputfile):
                     """.format(nsig=nsig,processname=process,testn=testn,source=source,target=target,parrayname=parrayname)
 
                     signalindex=0
+                    clockindex=0
                     for inp in state_el.input:
                         params = getParams(inp[1])
                         to_write+= """
@@ -164,6 +169,13 @@ def processFile(inputfile,outputfile):
                         """.format(testn=testn,signalindex=signalindex,signalid=signalid,command=inf,parrayname=parrayname)
                         signalid+=1
                         signalindex+=1
+                    for clk in state_el.clock:
+                        to_write+= """
+                            activeClockData activeClock{clockid} = {{"{clkname}",true}};
+                            {parrayname}[{testn}].active_clocks[{clockindex}] = activeClock{clockid};
+                        """.format(testn=testn,clockindex=clockindex,clockid=clockid,clkname=clk,parrayname=parrayname)
+                        clockid+=1
+                        clockindex+=1
                     testn+=1
 
         fname = (str(testfn) + ".").join(outputfile.split(".")) if testfn>0 else outputfile
