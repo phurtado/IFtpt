@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 from pyparsing import Word, alphas, alphanums, dictOf, Literal, restOfLine, OneOrMore, ZeroOrMore, empty, Suppress, replaceWith, Keyword, Group, Combine, Dict, delimitedList, Optional, CaselessKeyword, Forward, ParseResults, SkipTo
+
 import argparse
 
 def getGrammar():
